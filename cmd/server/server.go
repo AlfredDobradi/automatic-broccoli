@@ -6,6 +6,9 @@ import (
     "log"
     "net"
     "os"
+
+    "brvy.win/alfreddobradi/chat/internal/avro"
+    "brvy.win/alfreddobradi/chat/internal/types"
 )
 
 var host = flag.String("host", "127.0.0.1", "Host to listen on")
@@ -58,7 +61,13 @@ func handleRequest(conn net.Conn) {
         return
     }
 
+    var m types.Message
+    m, err = avro.Decode(message)
+    if err != nil {
+        log.Printf("Avro error: %v", err)
+    }
+
     conn.Write([]byte("OK"))
-    log.Printf("Message received: %s\n", message)
+    log.Printf("Message received: %v %T\n", m)
     conn.Close()
 }
