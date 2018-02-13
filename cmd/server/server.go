@@ -7,8 +7,8 @@ import (
     "net"
     "os"
 
-    "brvy.win/alfreddobradi/chat/internal/avro"
-    "brvy.win/alfreddobradi/chat/internal/types"
+    "github.com/alfreddobradi/rumour-mill/internal/avro"
+    "github.com/alfreddobradi/rumour-mill/internal/types"
 )
 
 var host = flag.String("host", "127.0.0.1", "Host to listen on")
@@ -68,6 +68,6 @@ func handleRequest(conn net.Conn) {
     }
 
     conn.Write([]byte("OK"))
-    log.Printf("Message received: %v %T\n", m)
+    log.Printf("Message received: %v %T\n", m, m)
     conn.Close()
 }

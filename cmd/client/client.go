@@ -9,8 +9,8 @@ import (
     "os"
     "strings"
 
-    "brvy.win/alfreddobradi/chat/internal/avro"
-    "brvy.win/alfreddobradi/chat/internal/types"
+    "github.com/alfreddobradi/rumour-mill/internal/avro"
+    "github.com/alfreddobradi/rumour-mill/internal/types"
 )
 
 func main() {
@@ -49,8 +49,6 @@ func main() {
 
         msg, err := reader.ReadString('\n')
         msg = strings.TrimSpace(msg)
-
-        log.Printf("msg: %s", msg == "Q")
 
         if err != nil {
             fmt.Println(err)

@@ -3,7 +3,7 @@ package avro
 import (
     "encoding/json"
 
-    "brvy.win/alfreddobradi/chat/internal/types"
+    "github.com/alfreddobradi/rumour-mill/internal/types"
     goavro "github.com/linkedin/goavro"
 )
 
