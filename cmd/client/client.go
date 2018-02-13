@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -12,7 +14,16 @@ import (
 	"github.com/alfreddobradi/rumour-mill/internal/types"
 )
 
+var nick = flag.String("nick", "", "Your nick")
+
 func main() {
+
+	flag.Parse()
+
+	if len(*nick) == 0 {
+		fmt.Println("You have to choose a nick")
+		os.Exit(1)
+	}
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:9001")
 	if err != nil {
@@ -59,7 +70,7 @@ func main() {
 			msg = strings.TrimSpace(msg)
 
 			var m types.Message
-			m.User = "Test"
+			m.User = *nick
 			m.Message = msg
 
 			avro, err := avro.Encode(m)
@@ -91,7 +102,7 @@ func chat(chat chan []uint8, in chan string, quit chan bool, conn net.Conn) {
 				log.Fatalf("Error: %v", err)
 			}
 		case x := <-in:
-			log.Printf("Message from the server: %s", x)
+			log.Printf("%s\n", x)
 		case <-quit:
 			conn.Close()
 			return

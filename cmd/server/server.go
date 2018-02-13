@@ -50,7 +50,7 @@ func handleRequest(conn net.Conn, clients map[string]net.Conn) {
 		_, err := conn.Read(message)
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("Client disconnected\n")
+				log.Printf("Client %s disconnected\n", self)
 				break
 			}
 			log.Printf("Error: %v\n", err)
@@ -64,14 +64,14 @@ func handleRequest(conn net.Conn, clients map[string]net.Conn) {
 			continue
 		}
 
-		conn.Write([]byte("OK"))
 		log.Printf("Message received: %v %T\n", m, m)
 
 		for a, c := range clients {
 			if a != self {
-				fmt.Fprintf(c, "%s said: %s", m.User, m.Message)
+				fmt.Fprintf(c, "%s: %s", m.User, m.Message)
+			} else {
+				fmt.Fprintf(c, "You: %s", m.Message)
 			}
 		}
-
 	}
 }
