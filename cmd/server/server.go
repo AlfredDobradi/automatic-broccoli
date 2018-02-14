@@ -8,8 +8,11 @@ import (
 	"net"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
+	"github.com/alfreddobradi/rumour-mill/internal/timescale"
 	"github.com/alfreddobradi/rumour-mill/internal/types"
 )
+
+const URI = "postgresql://postgres@127.0.0.1:5432/tutorial?sslmode=disable"
 
 var host = flag.String("host", "127.0.0.1", "Host to listen on")
 var port = flag.String("port", "9001", "Port to listen on")
@@ -21,6 +24,11 @@ func main() {
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", *host, *port))
 	if err != nil {
 		log.Fatalf("Error: %v", err)
+	}
+
+	timescaleConnection, err := timescale.New(URI)
+	if err != nil {
+		log.Fatalf("Error connecting to Timescale: %v", err)
 	}
 
 	defer listener.Close()
@@ -37,12 +45,12 @@ func main() {
 		clients[ip.String()] = conn
 		log.Printf("Client connection from %s", ip.String())
 
-		go handleRequest(conn, clients)
+		go handleRequest(conn, &timescaleConnection, clients)
 	}
 
 }
 
-func handleRequest(conn net.Conn, clients map[string]net.Conn) {
+func handleRequest(conn net.Conn, db types.Persister, clients map[string]net.Conn) {
 	message := make([]byte, 1024)
 	self := conn.RemoteAddr().String()
 
@@ -64,6 +72,7 @@ func handleRequest(conn net.Conn, clients map[string]net.Conn) {
 			continue
 		}
 
+		db.Persist(m)
 		log.Printf("Message received: %v %T\n", m, m)
 
 		for a, c := range clients {
