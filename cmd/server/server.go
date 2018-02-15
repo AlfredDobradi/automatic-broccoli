@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
 	"github.com/alfreddobradi/rumour-mill/internal/timescale"
@@ -71,16 +72,13 @@ func handleRequest(conn net.Conn, db types.Persister, clients map[string]net.Con
 			log.Printf("Avro error: %v\n", err)
 			continue
 		}
+		m.Time = time.Now().UnixNano()
 
 		db.Persist(m)
 		log.Printf("Message received: %v %T\n", m, m)
 
-		for a, c := range clients {
-			if a != self {
-				fmt.Fprintf(c, "%s: %s", m.User, m.Message)
-			} else {
-				fmt.Fprintf(c, "You: %s", m.Message)
-			}
+		for _, c := range clients {
+			c.Write(message)
 		}
 	}
 }

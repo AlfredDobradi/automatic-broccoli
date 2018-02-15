@@ -2,6 +2,7 @@ package types
 
 // Message represents a message document
 type Message struct {
+	Time    int64  `json:"time"`
 	User    string `json:"user"`
 	Message string `json:"message"`
 }

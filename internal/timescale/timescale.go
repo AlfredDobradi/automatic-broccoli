@@ -2,6 +2,7 @@ package timescale
 
 import (
 	"log"
+	"time"
 
 	"github.com/alfreddobradi/rumour-mill/internal/types"
 	"github.com/jmoiron/sqlx"
@@ -41,9 +42,11 @@ func (c *Conn) Persist(message types.Message) (err error) {
 		}
 	}()
 
-	query := "INSERT INTO messages VALUES (NOW(), $1, $2)"
+	query := "INSERT INTO messages VALUES ($1, $2, $3)"
 
-	if _, err = tx.Exec(query, message.User, message.Message); err != nil {
+	timestampTZ := time.Unix(0, message.Time).Format(time.RFC3339Nano)
+
+	if _, err = tx.Exec(query, timestampTZ, message.User, message.Message); err != nil {
 		log.Printf("Error while inserting message: %v", err)
 	}
 

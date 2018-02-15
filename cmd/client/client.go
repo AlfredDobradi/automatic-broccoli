@@ -102,7 +102,15 @@ func chat(chat chan []uint8, in chan string, quit chan bool, conn net.Conn) {
 				log.Fatalf("Error: %v", err)
 			}
 		case x := <-in:
-			log.Printf("%s\n", x)
+			if m, err := avro.Decode([]byte(x)); err == nil {
+				if m.User == *nick {
+					log.Printf("You said: %s", m.Message)
+				} else {
+					log.Printf("%s said: %s", m.User, m.Message)
+				}
+			} else {
+				log.Printf("Error decoding incoming message: %v", err)
+			}
 		case <-quit:
 			conn.Close()
 			return
