@@ -1,13 +1,8 @@
 package types
 
-// Message represents a message document
-type Message struct {
-	Time    int64  `json:"time"`
-	User    string `json:"user"`
-	Message string `json:"message"`
-}
+import "github.com/alfreddobradi/rumour-mill/internal/message"
 
 // Persister is an interface for types that can store data
 type Persister interface {
-	Persist(Message) error
+	Persist(message *message.Message) error
 }

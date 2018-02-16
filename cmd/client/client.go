@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
-	"github.com/alfreddobradi/rumour-mill/internal/types"
+	"github.com/alfreddobradi/rumour-mill/internal/message"
 )
 
 var nick = flag.String("nick", "", "Your nick")
@@ -69,7 +69,7 @@ func main() {
 
 			msg = strings.TrimSpace(msg)
 
-			var m types.Message
+			var m message.Message
 			m.User = *nick
 			m.Message = msg
 

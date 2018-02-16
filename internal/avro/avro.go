@@ -3,7 +3,7 @@ package avro
 import (
 	"encoding/json"
 
-	"github.com/alfreddobradi/rumour-mill/internal/types"
+	"github.com/alfreddobradi/rumour-mill/internal/message"
 	goavro "github.com/linkedin/goavro"
 )
 
@@ -12,6 +12,7 @@ var schema = `
         "type": "record",
         "name": "Message",
         "fields": [
+			{ "name": "type", "type": "string" },
             { "name": "time", "type": "long" },
             { "name": "user", "type": "string" },
             { "name": "message", "type": "string" }
@@ -20,7 +21,7 @@ var schema = `
 `
 
 // Encode takes a message and encodes it to avro format
-func Encode(msg types.Message) ([]uint8, error) {
+func Encode(msg message.Message) ([]uint8, error) {
 	codec, err := goavro.NewCodec(schema)
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func Encode(msg types.Message) ([]uint8, error) {
 }
 
 // Decode takes a binary avro buffer and decodes it into a message
-func Decode(buf []byte) (m types.Message, err error) {
+func Decode(buf []byte) (m message.Message, err error) {
 	codec, err := goavro.NewCodec(schema)
 	if err != nil {
 		return

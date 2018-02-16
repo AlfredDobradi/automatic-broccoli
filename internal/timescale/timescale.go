@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/alfreddobradi/rumour-mill/internal/types"
+	"github.com/alfreddobradi/rumour-mill/internal/message"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // driver for postgres
 )
@@ -25,7 +25,7 @@ func New(uri string) (Conn, error) {
 }
 
 // Persist inserts a message to TimescaleDB
-func (c *Conn) Persist(message types.Message) (err error) {
+func (c *Conn) Persist(msg *message.Message) (err error) {
 
 	// creates a new transaction value
 	tx := c.conn.MustBegin()
@@ -44,9 +44,9 @@ func (c *Conn) Persist(message types.Message) (err error) {
 
 	query := "INSERT INTO messages VALUES ($1, $2, $3)"
 
-	timestampTZ := time.Unix(0, message.Time).Format(time.RFC3339Nano)
+	timestampTZ := time.Unix(0, msg.Time).Format(time.RFC3339Nano)
 
-	if _, err = tx.Exec(query, timestampTZ, message.User, message.Message); err != nil {
+	if _, err = tx.Exec(query, timestampTZ, msg.User, msg.Message); err != nil {
 		log.Printf("Error while inserting message: %v", err)
 	}
 

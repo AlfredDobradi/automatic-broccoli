@@ -9,14 +9,27 @@ import (
 	"time"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
+	"github.com/alfreddobradi/rumour-mill/internal/message"
+	"github.com/alfreddobradi/rumour-mill/internal/stdout"
 	"github.com/alfreddobradi/rumour-mill/internal/timescale"
 	"github.com/alfreddobradi/rumour-mill/internal/types"
 )
 
-const URI = "postgresql://postgres@127.0.0.1:5432/tutorial?sslmode=disable"
+const backendType = "stdout"
+const uri = "postgresql://postgres@127.0.0.1:5432/tutorial?sslmode=disable"
 
 var host = flag.String("host", "127.0.0.1", "Host to listen on")
 var port = flag.String("port", "9001", "Port to listen on")
+
+func getConnection() (types.Persister, error) {
+	if backendType == "timescale" {
+		conn, err := timescale.New(uri)
+		return &conn, err
+	}
+
+	conn, err := stdout.New("")
+	return &conn, err
+}
 
 func main() {
 
@@ -27,9 +40,10 @@ func main() {
 		log.Fatalf("Error: %v", err)
 	}
 
-	timescaleConnection, err := timescale.New(URI)
+	backend, err := getConnection()
+
 	if err != nil {
-		log.Fatalf("Error connecting to Timescale: %v", err)
+		log.Fatalf("Error connecting to backend: %v", err)
 	}
 
 	defer listener.Close()
@@ -46,17 +60,17 @@ func main() {
 		clients[ip.String()] = conn
 		log.Printf("Client connection from %s", ip.String())
 
-		go handleRequest(conn, &timescaleConnection, clients)
+		go handleRequest(conn, backend, clients)
 	}
 
 }
 
 func handleRequest(conn net.Conn, db types.Persister, clients map[string]net.Conn) {
-	message := make([]byte, 1024)
+	msg := make([]byte, 1024)
 	self := conn.RemoteAddr().String()
 
 	for {
-		_, err := conn.Read(message)
+		_, err := conn.Read(msg)
 		if err != nil {
 			if err == io.EOF {
 				log.Printf("Client %s disconnected\n", self)
@@ -66,19 +80,18 @@ func handleRequest(conn net.Conn, db types.Persister, clients map[string]net.Con
 			continue
 		}
 
-		var m types.Message
-		m, err = avro.Decode(message)
+		var m message.Message
+		m, err = avro.Decode(msg)
 		if err != nil {
 			log.Printf("Avro error: %v\n", err)
 			continue
 		}
 		m.Time = time.Now().UnixNano()
 
-		db.Persist(m)
-		log.Printf("Message received: %v %T\n", m, m)
+		db.Persist(&m)
 
 		for _, c := range clients {
-			c.Write(message)
+			c.Write(msg)
 		}
 	}
 }
