@@ -23,7 +23,7 @@ func New(uri string) (Conn, error) {
 func (c *Conn) Persist(msg *message.Message) (err error) {
 	timestampTZ := time.Unix(0, msg.Time).Format(time.RFC3339Nano)
 
-	log.Printf("Message: %s - %s: %s", timestampTZ, msg.User, msg.Message)
+	log.Printf("Message: %s - [%s] %s: %s", timestampTZ, msg.Type, msg.User, msg.Message)
 
 	return err
 }
