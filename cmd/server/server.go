@@ -31,6 +31,11 @@ func getConnection() (types.Persister, error) {
 	return &conn, err
 }
 
+type Client struct {
+	Conn net.Conn
+	Nick string
+}
+
 func main() {
 
 	flag.Parse()
@@ -48,7 +53,7 @@ func main() {
 
 	defer listener.Close()
 
-	clients := make(map[string]net.Conn, 1)
+	clients := make(map[string]Client, 1)
 
 	for {
 		conn, err := listener.Accept()
@@ -56,16 +61,60 @@ func main() {
 			log.Fatalf("Error: %v", err)
 		}
 
-		ip := conn.RemoteAddr()
-		clients[ip.String()] = conn
-		log.Printf("Client connection from %s", ip.String())
+		ip := conn.RemoteAddr().String()
+		log.Printf("Client connection from %s", ip)
+
+		handshake := make([]byte, 1024)
+		_, err = conn.Read(handshake)
+		if err != nil {
+			log.Printf("Handshake from %s failed:\n%+v", ip, err)
+			continue
+		}
+
+		h, err := avro.Decode(handshake)
+		if err != nil {
+			log.Printf("Failed decoding handshake from %s:\n%+v", ip, err)
+			continue
+		}
+
+		exists := false
+		for _, c := range clients {
+			if c.Nick == h.User {
+				exists = true
+				break
+			}
+		}
+
+		if exists {
+			log.Printf("User %s already exists", h.User)
+			m := message.Message{
+				Type:    "system",
+				Message: fmt.Sprintf("Nick %s already connected", h.User),
+			}
+			ma, err := avro.Encode(m)
+			if err != nil {
+				log.Printf("Avro decode error:\n%+v", err)
+				continue
+			}
+
+			conn.Write(ma)
+			conn.Close()
+			continue
+		}
+
+		clients[ip] = Client{
+			conn,
+			h.User,
+		}
+
+		log.Printf("Handshake from %s with nick %s was successful", ip, h.User)
 
 		go handleRequest(conn, backend, clients)
 	}
 
 }
 
-func handleRequest(conn net.Conn, db types.Persister, clients map[string]net.Conn) {
+func handleRequest(conn net.Conn, db types.Persister, clients map[string]Client) {
 	msg := make([]byte, 1024)
 	self := conn.RemoteAddr().String()
 
@@ -86,12 +135,18 @@ func handleRequest(conn net.Conn, db types.Persister, clients map[string]net.Con
 			log.Printf("Avro error: %v\n", err)
 			continue
 		}
+
+		if clients[self].Nick != m.User {
+			log.Printf("User sent message with different nick. Closing connection.")
+			continue
+		}
+
 		m.Time = time.Now().UnixNano()
 
 		db.Persist(&m)
 
 		for _, c := range clients {
-			c.Write(msg)
+			c.Conn.Write(msg)
 		}
 	}
 }

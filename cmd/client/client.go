@@ -42,21 +42,35 @@ func main() {
 	quit := make(chan bool)
 
 	go func() {
+		msg := make([]byte, 1024)
 		for {
-			msg := make([]byte, 1024)
 			_, err := conn.Read(msg)
 			if err != nil {
 				if err == io.EOF {
-					log.Fatalf("Server sent EOF. Bye!")
+					in <- "EOF"
+					break
 				}
 				log.Fatalf("Error: %v", err)
 			}
 
-			in <- string(msg)
+			if len(msg) > 0 {
+				in <- string(msg)
+			}
 		}
+		close(in)
 	}()
 
 	go func() {
+		handshake := message.Message{
+			Type: "handshake",
+			User: *nick,
+		}
+
+		h, err := avro.Encode(handshake)
+		if err != nil {
+			log.Fatalf("Error encoding handshake: %+v", err)
+		}
+		chatConn <- h
 
 		reader := bufio.NewReader(os.Stdin)
 
@@ -70,6 +84,7 @@ func main() {
 			msg = strings.TrimSpace(msg)
 
 			var m message.Message
+			m.Type = "chat"
 			m.User = *nick
 			m.Message = msg
 
@@ -102,11 +117,21 @@ func chat(chat chan []uint8, in chan string, quit chan bool, conn net.Conn) {
 				log.Fatalf("Error: %v", err)
 			}
 		case x := <-in:
+			if x == "EOF" {
+				conn.Close()
+				return
+			}
 			if m, err := avro.Decode([]byte(x)); err == nil {
 				if m.User == *nick {
 					log.Printf("You said: %s", m.Message)
 				} else {
-					log.Printf("%s said: %s", m.User, m.Message)
+					var u string
+					if m.Type == "system" {
+						u = "system"
+					} else {
+						u = m.User
+					}
+					log.Printf("%s said: %s", u, m.Message)
 				}
 			} else {
 				log.Printf("Error decoding incoming message: %v", err)
