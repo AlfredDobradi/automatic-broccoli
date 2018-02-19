@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
@@ -25,12 +26,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:9001")
-	if err != nil {
-		log.Fatalf("Error: %v", err)
-	}
+	cert, err := tls.LoadX509KeyPair("../../certs/client.pem", "../../certs/client.key")
+	config := tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
 
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	conn, err := tls.Dial("tcp", "127.0.0.1:9001", &config)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}

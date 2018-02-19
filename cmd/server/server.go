@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"io"
@@ -42,7 +45,15 @@ func main() {
 
 	flag.Parse()
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", *host, *port))
+	cert, err := tls.LoadX509KeyPair("../../certs/server.pem", "../../certs/server.key")
+	if err != nil {
+		log.Printf("server: loadkeys: %s", err)
+	}
+
+	config := tls.Config{Certificates: []tls.Certificate{cert}}
+	config.Rand = rand.Reader
+
+	listener, err := tls.Listen("tcp", fmt.Sprintf("%s:%s", *host, *port), &config)
 	if err != nil {
 		log.Critical("server: listen: %v", err)
 	}
@@ -64,6 +75,14 @@ func main() {
 
 		ip := conn.RemoteAddr().String()
 		log.Infof("server: connection: %s", ip)
+
+		tlsc, ok := conn.(*tls.Conn)
+		if ok {
+			state := tlsc.ConnectionState()
+			for _, v := range state.PeerCertificates {
+				log.Print(x509.MarshalPKIXPublicKey(v.PublicKey))
+			}
+		}
 
 		handshake := make([]byte, 1024)
 		_, err = conn.Read(handshake)
