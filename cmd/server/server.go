@@ -4,11 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"time"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
+	"github.com/alfreddobradi/rumour-mill/internal/logger"
 	"github.com/alfreddobradi/rumour-mill/internal/message"
 	"github.com/alfreddobradi/rumour-mill/internal/stdout"
 	"github.com/alfreddobradi/rumour-mill/internal/timescale"
@@ -31,10 +31,12 @@ func getConnection() (types.Persister, error) {
 	return &conn, err
 }
 
-type Client struct {
+type client struct {
 	Conn net.Conn
 	Nick string
 }
+
+var log = logger.New()
 
 func main() {
 
@@ -42,38 +44,37 @@ func main() {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", *host, *port))
 	if err != nil {
-		log.Fatalf("Error: %v", err)
+		log.Critical("server: listen: %v", err)
 	}
 
 	backend, err := getConnection()
-
 	if err != nil {
-		log.Fatalf("Error connecting to backend: %v", err)
+		log.Critical("server: backend: %v", err)
 	}
 
 	defer listener.Close()
 
-	clients := make(map[string]Client, 1)
+	clients := make(map[string]client, 1)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Fatalf("Error: %v", err)
+			log.Warningf("server: accept: %v", err)
 		}
 
 		ip := conn.RemoteAddr().String()
-		log.Printf("Client connection from %s", ip)
+		log.Infof("server: connection: %s", ip)
 
 		handshake := make([]byte, 1024)
 		_, err = conn.Read(handshake)
 		if err != nil {
-			log.Printf("Handshake from %s failed:\n%+v", ip, err)
+			log.Warningf("server: handshake: %s - %+v", ip, err)
 			continue
 		}
 
 		h, err := avro.Decode(handshake)
 		if err != nil {
-			log.Printf("Failed decoding handshake from %s:\n%+v", ip, err)
+			log.Warningf("server: handshake: %s - %+v", ip, err)
 			continue
 		}
 
@@ -86,14 +87,14 @@ func main() {
 		}
 
 		if exists {
-			log.Printf("User %s already exists", h.User)
+			log.Warningf("User %s already exists", h.User)
 			m := message.Message{
 				Type:    "system",
 				Message: fmt.Sprintf("Nick %s already connected", h.User),
 			}
 			ma, err := avro.Encode(m)
 			if err != nil {
-				log.Printf("Avro decode error:\n%+v", err)
+				log.Errorf("Avro decode error:\n%+v", err)
 				continue
 			}
 
@@ -102,19 +103,19 @@ func main() {
 			continue
 		}
 
-		clients[ip] = Client{
+		clients[ip] = client{
 			conn,
 			h.User,
 		}
 
-		log.Printf("Handshake from %s with nick %s was successful", ip, h.User)
+		log.Debugf("server: handshake: %s - %s", ip, h.User)
 
 		go handleRequest(conn, backend, clients)
 	}
 
 }
 
-func handleRequest(conn net.Conn, db types.Persister, clients map[string]Client) {
+func handleRequest(conn net.Conn, db types.Persister, clients map[string]client) {
 	msg := make([]byte, 1024)
 	self := conn.RemoteAddr().String()
 
@@ -122,22 +123,23 @@ func handleRequest(conn net.Conn, db types.Persister, clients map[string]Client)
 		_, err := conn.Read(msg)
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("Client %s disconnected\n", self)
+				log.Infof("server: disconnect: %s", self)
+				delete(clients, self)
 				break
 			}
-			log.Printf("Error: %v\n", err)
+			log.Errorf("server: message: %v\n", err)
 			continue
 		}
 
 		var m message.Message
 		m, err = avro.Decode(msg)
 		if err != nil {
-			log.Printf("Avro error: %v\n", err)
+			log.Errorf("server: avro: %v\n", err)
 			continue
 		}
 
 		if clients[self].Nick != m.User {
-			log.Printf("User sent message with different nick. Closing connection.")
+			log.Warningf("server: invalid message: %s - %s != %s", self, clients[self].Nick, m.User)
 			continue
 		}
 

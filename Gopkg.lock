@@ -31,9 +31,15 @@
   revision = "94a7a9db615f35a39dd2b82089398b92fabad2ba"
   version = "v2.1.0"
 
+[[projects]]
+  name = "github.com/op/go-logging"
+  packages = ["."]
+  revision = "b2cb9fa56473e98db8caba80237377e83fe44db5"
+  version = "v1"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cf02fd7452dfe89eaaa6eef9d915c4c2c148d95fed5501d318ecbf94ed3817bf"
+  inputs-digest = "c63db78037d65842c501d60ce34c9c96ae33948d8d4c559f37101987826e692b"
   solver-name = "gps-cdcl"
   solver-version = 1
