@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"time"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
@@ -47,7 +48,8 @@ func main() {
 
 	cert, err := tls.LoadX509KeyPair("../../certs/server.pem", "../../certs/server.key")
 	if err != nil {
-		log.Printf("server: loadkeys: %s", err)
+		log.Fatalf("server: loadkeys: %s", err)
+		os.Exit(1)
 	}
 
 	config := tls.Config{Certificates: []tls.Certificate{cert}}
@@ -55,12 +57,12 @@ func main() {
 
 	listener, err := tls.Listen("tcp", fmt.Sprintf("%s:%s", *host, *port), &config)
 	if err != nil {
-		log.Critical("server: listen: %v", err)
+		log.Fatalf("server: listen: %v", err)
 	}
 
 	backend, err := getConnection()
 	if err != nil {
-		log.Critical("server: backend: %v", err)
+		log.Fatalf("server: backend: %v", err)
 	}
 
 	defer listener.Close()
@@ -80,7 +82,9 @@ func main() {
 		if ok {
 			state := tlsc.ConnectionState()
 			for _, v := range state.PeerCertificates {
-				log.Print(x509.MarshalPKIXPublicKey(v.PublicKey))
+				if k, err := x509.MarshalPKIXPublicKey(v.PublicKey); err == nil {
+					log.Debugf("%s", k)
+				}
 			}
 		}
 
