@@ -71,34 +71,36 @@ func main() {
 		}
 		chatConn <- h
 
-		reader := bufio.NewReader(os.Stdin)
+		scanner := bufio.NewScanner(os.Stdin)
 
-		for msg, err := reader.ReadString('\n'); msg != "Q\n"; {
+		for scanner.Scan() {
+			msg := scanner.Text()
 
-			if err != nil {
-				log.Printf("Error reading message: %v\n", err)
-				continue
+			if msg == "/quit" {
+				quit <- true
 			}
 
-			msg = strings.TrimSpace(msg)
+			msgParsed := message.Parse(msg)
 
 			var m message.Message
 			m.Type = "chat"
 			m.User = *nick
-			m.Message = msg
+			m.Message = strings.TrimSpace(msgParsed["message"])
+			if len(msgParsed["recipient"]) > 0 {
+				m.Recipient = msgParsed["recipient"]
+			}
 
 			avro, err := avro.Encode(m)
 			if err != nil {
 				log.Printf("Avro encode failed: %v\n", err)
-				quit <- true
+				break
 			}
 
 			chatConn <- avro
+		}
 
-			msg, err = reader.ReadString('\n')
-			if err != nil {
-				quit <- true
-			}
+		if err := scanner.Err(); err != nil {
+			log.Printf("Error reading message: %v\n", err)
 		}
 
 		quit <- true

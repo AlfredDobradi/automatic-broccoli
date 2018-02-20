@@ -171,7 +171,9 @@ func handleRequest(conn net.Conn, db types.Persister, clients map[string]client)
 		db.Persist(&m)
 
 		for _, c := range clients {
-			c.Conn.Write(msg)
+			if len(m.Recipient) > 0 && m.Recipient == c.Nick || len(m.Recipient) == 0 || m.User == c.Nick {
+				c.Conn.Write(msg)
+			}
 		}
 	}
 }
