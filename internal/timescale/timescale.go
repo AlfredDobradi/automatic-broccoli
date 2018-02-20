@@ -42,11 +42,21 @@ func (c *Conn) Persist(msg *message.Message) (err error) {
 		}
 	}()
 
-	query := "INSERT INTO messages VALUES ($1, $2, $3)"
+	query := "INSERT INTO messages (time, recipient, sender, type, body) VALUES ($1, $2, $3, $4, $5)"
 
 	timestampTZ := time.Unix(0, msg.Time).Format(time.RFC3339Nano)
 
-	if _, err = tx.Exec(query, timestampTZ, msg.User, msg.Message); err != nil {
+	msgType := msg.Type
+	if len(msgType) == 0 {
+		msgType = "chat"
+	}
+
+	recipient := msg.Recipient
+	if len(recipient) == 0 {
+		recipient = "global"
+	}
+
+	if _, err = tx.Exec(query, timestampTZ, recipient, msg.User, msgType, msg.Message); err != nil {
 		log.Printf("Error while inserting message: %v", err)
 	}
 
