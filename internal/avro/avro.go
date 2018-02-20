@@ -15,7 +15,8 @@ var schema = `
 			{ "name": "type", "type": "string" },
             { "name": "time", "type": "long" },
             { "name": "user", "type": "string" },
-            { "name": "message", "type": "string" }
+			{ "name": "message", "type": "string" },
+			{ "name": "recipient", "type": "string" }
         ]
     }
 `
