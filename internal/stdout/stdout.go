@@ -1,11 +1,11 @@
 package stdout
 
 import (
-	"log"
-	"time"
-
+	"github.com/alfreddobradi/rumour-mill/internal/logger"
 	"github.com/alfreddobradi/rumour-mill/internal/message"
 )
+
+var log = logger.New()
 
 // Conn is a connection struct
 type Conn struct {
@@ -21,9 +21,11 @@ func New(uri string) (Conn, error) {
 
 // Persist inserts a message to backend
 func (c *Conn) Persist(msg *message.Message) (err error) {
-	timestampTZ := time.Unix(0, msg.Time).Format(time.RFC3339Nano)
-
-	log.Printf("Message: %s - [%s] %s: %s", timestampTZ, msg.Type, msg.User, msg.Message)
+	if len(msg.Recipient) > 0 {
+		log.Debugf("server: message: %s %s -> %s : %s", msg.Type, msg.User, msg.Recipient, msg.Message)
+	} else {
+		log.Debugf("server: message: %s %s -> global : %s", msg.Type, msg.User, msg.Message)
+	}
 
 	return err
 }

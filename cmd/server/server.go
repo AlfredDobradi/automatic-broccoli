@@ -19,7 +19,7 @@ import (
 	"github.com/alfreddobradi/rumour-mill/internal/types"
 )
 
-const backendType = "stdout"
+const backendType = "timescale"
 const uri = "postgresql://postgres@127.0.0.1:5432/tutorial?sslmode=disable"
 
 var host = flag.String("host", "127.0.0.1", "Host to listen on")
@@ -141,12 +141,13 @@ func main() {
 func handleRequest(conn net.Conn, db types.Persister, clients map[string]client) {
 	msg := make([]byte, 1024)
 	self := conn.RemoteAddr().String()
+	client := clients[self]
 
 	for {
 		_, err := conn.Read(msg)
 		if err != nil {
 			if err == io.EOF {
-				log.Infof("server: disconnect: %s", self)
+				log.Infof("server: disconnect: [%s] %s", self, client.Nick)
 				delete(clients, self)
 				break
 			}
@@ -171,7 +172,9 @@ func handleRequest(conn net.Conn, db types.Persister, clients map[string]client)
 		db.Persist(&m)
 
 		for _, c := range clients {
-			c.Conn.Write(msg)
+			if len(m.Recipient) > 0 && m.Recipient == c.Nick || len(m.Recipient) == 0 || m.User == c.Nick {
+				c.Conn.Write(msg)
+			}
 		}
 	}
 }
