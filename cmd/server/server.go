@@ -4,14 +4,13 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"flag"
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"time"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
+	"github.com/alfreddobradi/rumour-mill/internal/config"
 	"github.com/alfreddobradi/rumour-mill/internal/logger"
 	"github.com/alfreddobradi/rumour-mill/internal/message"
 	"github.com/alfreddobradi/rumour-mill/internal/stdout"
@@ -19,15 +18,9 @@ import (
 	"github.com/alfreddobradi/rumour-mill/internal/types"
 )
 
-const backendType = "timescale"
-const uri = "postgresql://postgres@127.0.0.1:5432/tutorial?sslmode=disable"
-
-var host = flag.String("host", "127.0.0.1", "Host to listen on")
-var port = flag.String("port", "9001", "Port to listen on")
-
-func getConnection() (types.Persister, error) {
-	if backendType == "timescale" {
-		conn, err := timescale.New(uri)
+func getConnection(cfg config.Options) (types.Persister, error) {
+	if cfg.Backend == "timescale" {
+		conn, err := timescale.New(cfg.Timescale.URI)
 		return &conn, err
 	}
 
@@ -36,7 +29,7 @@ func getConnection() (types.Persister, error) {
 }
 
 type client struct {
-	Conn net.Conn
+	Conn *tls.Conn
 	Nick string
 }
 
@@ -44,23 +37,28 @@ var log = logger.New()
 
 func main() {
 
-	flag.Parse()
-
-	cert, err := tls.LoadX509KeyPair("../../certs/server.pem", "../../certs/server.key")
+	options, err := config.Load("../../config.sample.json")
 	if err != nil {
-		log.Fatalf("server: loadkeys: %s", err)
-		os.Exit(1)
+		log.Panicf("server: config: %+v", err)
 	}
 
-	config := tls.Config{Certificates: []tls.Certificate{cert}}
-	config.Rand = rand.Reader
+	absPath := "../.."
+	cert, err := tls.LoadX509KeyPair(fmt.Sprintf("%s/%s", absPath, options.TLS.Cert), fmt.Sprintf("%s/%s", absPath, options.TLS.Key))
+	if err != nil {
+		log.Panicf("server: loadkeys: %s", err)
+	}
 
-	listener, err := tls.Listen("tcp", fmt.Sprintf("%s:%s", *host, *port), &config)
+	tlsCfg := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
+	tlsCfg.Rand = rand.Reader
+
+	listener, err := tls.Listen("tcp", fmt.Sprintf("%s:%d", options.Host, options.Port), &tlsCfg)
 	if err != nil {
 		log.Fatalf("server: listen: %v", err)
 	}
 
-	backend, err := getConnection()
+	log.Debugf("%s:%d", options.Host, options.Port)
+
+	backend, err := getConnection(options)
 	if err != nil {
 		log.Fatalf("server: backend: %v", err)
 	}
@@ -79,20 +77,24 @@ func main() {
 		log.Infof("server: connection: %s", ip)
 
 		tlsc, ok := conn.(*tls.Conn)
-		if ok {
-			state := tlsc.ConnectionState()
-			for _, v := range state.PeerCertificates {
-				if k, err := x509.MarshalPKIXPublicKey(v.PublicKey); err == nil {
-					log.Debugf("%s", k)
-				}
-			}
+		if !ok {
+			log.Panicf("server: tls: can't assert connection variable")
 		}
 
 		handshake := make([]byte, 1024)
-		_, err = conn.Read(handshake)
+		_, err = tlsc.Read(handshake)
 		if err != nil {
 			log.Warningf("server: handshake: %s - %+v", ip, err)
 			continue
+		}
+
+		state := tlsc.ConnectionState()
+		for _, v := range state.PeerCertificates {
+			if k, err := x509.MarshalPKIXPublicKey(v.PublicKey); err == nil {
+				log.Debugf("%s", k)
+			} else {
+				log.Warningf("%+v", err)
+			}
 		}
 
 		h, err := avro.Decode(handshake)
@@ -121,19 +123,19 @@ func main() {
 				continue
 			}
 
-			conn.Write(ma)
-			conn.Close()
+			tlsc.Write(ma)
+			tlsc.Close()
 			continue
 		}
 
 		clients[ip] = client{
-			conn,
+			tlsc,
 			h.User,
 		}
 
 		log.Debugf("server: handshake: %s - %s", ip, h.User)
 
-		go handleRequest(conn, backend, clients)
+		go handleRequest(tlsc, backend, clients)
 	}
 
 }

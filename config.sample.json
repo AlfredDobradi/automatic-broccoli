@@ -1,0 +1,10 @@
+{
+    "backend": "stdout",
+    "tls": {
+        "cert": "certs/server.pem",
+        "key": "certs/server.key"
+    },
+    "timescale": {
+        "uri": "postgresql://postgres@127.0.0.1:5432/tutorial?sslmode=disable"
+    }
+}
