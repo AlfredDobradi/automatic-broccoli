@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"time"
 
 	"github.com/alfreddobradi/rumour-mill/internal/avro"
@@ -46,8 +45,7 @@ func main() {
 	absPath := "../.."
 	cert, err := tls.LoadX509KeyPair(fmt.Sprintf("%s/%s", absPath, options.TLS.Cert), fmt.Sprintf("%s/%s", absPath, options.TLS.Key))
 	if err != nil {
-		log.Fatalf("server: loadkeys: %s", err)
-		os.Exit(1)
+		log.Panicf("server: loadkeys: %s", err)
 	}
 
 	tlsCfg := tls.Config{Certificates: []tls.Certificate{cert}, ClientAuth: tls.RequireAnyClientCert}
